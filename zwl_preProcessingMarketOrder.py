@@ -88,7 +88,8 @@ def sftp_upload(host, port, username, password, filenames, remote_folder, backup
         sftp = ssh.open_sftp()
         sftp.chdir(remote_folder)
         for filename in filenames:
-            sftp.put(localpath=f"{os.getcwd()}\\{filename}", remotepath=filename)
+            if not env.get('debug'):
+                sftp.put(localpath=f"{os.getcwd()}\\{filename}", remotepath=filename)
             shutil.move(src=f"{os.getcwd()}\\{filename}", dst=f"{os.getcwd()}\\{backup_folder}\\{filename}")
 
 def new_header(order_id) -> dict:
@@ -122,6 +123,7 @@ def update_kit_order_line(order_id, line_id, sku_id, qty_ordered) -> dict:
 
 def generate_IF_files(rows) -> bool:
     order_id = ''
+    line_id = ''
     kit_order_id = ''
     kit_id = ''
     kit_line_id = 0
@@ -131,9 +133,8 @@ def generate_IF_files(rows) -> bool:
     odl = []
     odh = []
     for row in rows:
-        # generate IF_ODL line if previous row is kit_id (is_row_updated) and sku_id is changed
-        # do not generate IF_ODL for repeated kit_id until go through all for same kit_id
-        if is_row_updated and kit_id != row[idx_sku_id]:
+        # generate IF_ODL line if previous row is kit_id (is_row_updated) and line_id is changed
+        if is_row_updated and line_id != row[idx_line_id]:
             odl.append(update_kit_order_line(order_id=kit_order_id, line_id=kit_line_id,
                                                 sku_id=kit_id, qty_ordered=kit_qty_ordered))
             is_row_updated = False
@@ -164,6 +165,8 @@ def generate_IF_files(rows) -> bool:
             new_line['notes'] = row[idx_line_id]
             odl.append(new_line)
 
+        line_id = row[idx_line_id] # this will be previous rows' line_id
+
     if is_row_updated:
         # if last row is kit line or kit line in the last order of rows
         #-> generate IF_ODL line to update the kit line if existed.
@@ -187,7 +190,7 @@ def generate_IF_files(rows) -> bool:
 
 def main():
     try:
-        logger.info(f'START with using {ZWL_APP_ENV}')
+        logger.info(f'START with using {ZWL_APP_ENV}, debug {env.get('debug')}')
         if hasattr(ssl, '_create_unverified_context'):
             ssl._create_default_https_context = ssl._create_unverified_context
         apiCli = client.Client(env.get('wsdl')) # PROD
