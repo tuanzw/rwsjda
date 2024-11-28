@@ -12,7 +12,7 @@ def filer(self):
 
 logger = getLogger("applog")
 
-formatter = Formatter("[%(asctime)s] %(levelname)-8s| %(module)-10s| %(message)s")
+formatter = Formatter("[%(asctime)s] %(module)-10s| %(levelname)8s| %(message)s")
 handler = handlers.TimedRotatingFileHandler(
     filename=filename, when="w5", interval=1, backupCount=7, encoding="utf-8"
 )

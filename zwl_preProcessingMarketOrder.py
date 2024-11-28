@@ -187,7 +187,7 @@ def generate_IF_files(rows) -> bool:
 
 def main():
     try:
-        logger.info('START')
+        logger.info(f'START with using {ZWL_APP_ENV}')
         if hasattr(ssl, '_create_unverified_context'):
             ssl._create_default_https_context = ssl._create_unverified_context
         apiCli = client.Client(env.get('wsdl')) # PROD
