@@ -19,6 +19,15 @@ env = dotenv_values(f'.env.{ZWL_APP_ENV}')
 
 ymdhms = datetime.now().strftime('%Y%m%d%H%M%S')
 
+idx_order_id = 0
+idx_line_id = 1
+idx_sku_id = 2
+idx_qty_ordered =  4
+idx_udt1 = 5
+idx_udt2 = 6
+idx_component_id = 7
+idx_component_qty = 8
+
 def suds_to_dict(obj):
     if not hasattr(obj, '__keylist__'):
         return obj
@@ -94,6 +103,22 @@ def new_header(order_id) -> dict:
     new_header['repack'] = 'N'
     new_header['repack_loc_id'] = ''
     return new_header
+def update_kit_order_line(order_id, line_id, sku_id, qty_ordered) -> dict:
+    new_line = {**order_line}
+    new_line['client_id'] = 'ZWILLING'
+    new_line['owner_id'] = 'ZWILLING'
+    new_line['merge_action'] = 'U'
+    new_line['order_id'] = order_id
+    new_line['line_id'] = line_id
+    new_line['sku_id'] = sku_id
+    new_line['qty_ordered'] = qty_ordered
+    new_line['unallocatable'] = 'Y'
+    new_line['product_price'] = '@'
+    new_line['product_currency'] = '@'
+    new_line['user_def_type_1'] = '@'
+    new_line['user_def_type_2'] = '@'
+    new_line['notes'] = 'Splitted'
+    return new_line
 
 def generate_IF_files(rows) -> bool:
     order_id = ''
@@ -106,50 +131,44 @@ def generate_IF_files(rows) -> bool:
     odl = []
     odh = []
     for row in rows:
-        if order_id != row[0]: # order_id changed -> generate IF_ODH file to update order_header that already proceeded!
-            order_id = row[0]
-            max_line_id = int(row[1])
-            if is_row_updated:
-                new_line = {**order_line}
-                new_line['client_id'] = 'ZWILLING'
-                new_line['owner_id'] = 'ZWILLING'
-                new_line['merge_action'] = 'U'
-                new_line['order_id'] = kit_order_id
-                new_line['line_id'] = kit_line_id
-                new_line['sku_id'] = kit_id
-                new_line['qty_ordered'] = kit_qty_ordered
-                new_line['unallocatable'] = 'Y'
-                new_line['product_price'] = '@'
-                new_line['product_currency'] = '@'
-                new_line['user_def_type_1'] = '@'
-                new_line['user_def_type_2'] = '@'
-                new_line['notes'] = 'Splitted'
-                odl.append(new_line)
+        if order_id != row[idx_order_id]: # order_id changed -> generate IF_ODH line to update order_header that already proceeded!
+            order_id = row[idx_order_id]
+            max_line_id = int(row[idx_line_id])
+            odh.append(new_header(order_id))
+            if is_row_updated: # generate IF_ODL line to update the kit line if existed.
+                odl.append(update_kit_order_line(order_id=kit_order_id, line_id=kit_line_id,
+                                                 sku_id=kit_id, qty_ordered=kit_qty_ordered))
                 is_row_updated = False
 
-            odh.append(new_header(order_id))
 
-
-        if row[7]: # need to split kit item to component lines
+        if row[idx_component_id]: # need to split kit item to component lines
             new_line = {**order_line}
             max_line_id = max_line_id + 1
             is_row_updated = True
-            kit_order_id = row[0]
-            kit_line_id = row[1]
-            kit_id = row[2]
-            kit_qty_ordered = float(row[4])
+            kit_order_id = row[idx_order_id]
+            kit_line_id = row[idx_line_id]
+            kit_id = row[idx_sku_id]
+            kit_qty_ordered = float(row[idx_qty_ordered])
             new_line['client_id'] = 'ZWILLING'
             new_line['owner_id'] = 'ZWILLING'
-            new_line['order_id'] = row[0]
+            new_line['order_id'] = row[idx_order_id]
             new_line['line_id'] = max_line_id
-            new_line['sku_id'] = row[7]
-            new_line['qty_ordered'] = float(row[4])*float(row[8])
-            new_line['user_def_type_1'] = row[5]
-            new_line['user_def_type_2'] = row[6]
-            new_line['user_def_type_8'] = row[2]
-            new_line['notes'] = row[1]
+            new_line['sku_id'] = row[idx_component_id]
+            new_line['qty_ordered'] = float(row[idx_qty_ordered])*float(row[idx_component_qty])
+            new_line['user_def_type_1'] = row[idx_udt1]
+            new_line['user_def_type_2'] = row[idx_udt2]
+            new_line['user_def_type_8'] = row[idx_sku_id]
+            new_line['notes'] = row[idx_line_id]
             odl.append(new_line)
 
+    if is_row_updated:
+        # if last row is kit line or kit line in the last order of rows
+        #-> generate IF_ODL line to update the kit line if existed.
+        odl.append(update_kit_order_line(order_id=kit_order_id, line_id=kit_line_id,
+                                            sku_id=kit_id, qty_ordered=kit_qty_ordered))
+        is_row_updated = False
+
+    filename_list = []
     if odh or odl:
         output = {'IF__ODH_': odh, 'IF__ODL_': odl}
         for k, v in output.items():
@@ -158,9 +177,10 @@ def generate_IF_files(rows) -> bool:
                 with open(f'{k}ZWL_{ymdhms}.txt', 'w', newline='') as csv_file:
                     writer = csv.DictWriter(csv_file, fieldnames)
                     writer.writerows(v)
-        return True
+                    filename_list.append(f'{k}ZWL_{ymdhms}.txt')
+        return filename_list
     else:
-        return False
+        return None
 
 def main():
     try:
@@ -174,15 +194,16 @@ def main():
         rows = getMarketOrderDetails(apiCli)
 
         if rows:
-            write_rows_to_csv(rows,f'ZWL_{ymdhms}.csv')
+            write_rows_to_csv(rows,f'{os.getcwd()}\\{env.get('backup')}\\ZWL_{ymdhms}.csv')
             logger.info('2. Output to csv')
-            if generate_IF_files(rows):
+            if_filename = generate_IF_files(rows)
+            if if_filename:
                 logger.info('3. Generate IF__ files')
                 sftp_upload(host=env.get('sftp_host'), port=env.get('sftp_port'),
                     username=env.get('sftp_username'), password=env.get('sftp_password'),
                     remote_folder=env.get('sftp_remote_folder'), filenames=glob.glob(f'IF*{ymdhms}*.txt'),
                     backup_folder=env.get('backup'))
-                logger.info('4. Put to intray')
+                logger.info(f'4. Put to intray: {if_filename}')
             else:
                 logger.info('No IF__ files')
         else:
