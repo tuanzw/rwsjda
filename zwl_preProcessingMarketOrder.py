@@ -131,14 +131,17 @@ def generate_IF_files(rows) -> bool:
     odl = []
     odh = []
     for row in rows:
+        # generate IF_ODL line if previous row is kit_id (is_row_updated) and sku_id is changed
+        # do not generate IF_ODL for repeated kit_id until go through all for same kit_id
+        if is_row_updated and kit_id != row[idx_sku_id]:
+            odl.append(update_kit_order_line(order_id=kit_order_id, line_id=kit_line_id,
+                                                sku_id=kit_id, qty_ordered=kit_qty_ordered))
+            is_row_updated = False
+
         if order_id != row[idx_order_id]: # order_id changed -> generate IF_ODH line to update order_header that already proceeded!
             order_id = row[idx_order_id]
             max_line_id = int(row[idx_line_id])
             odh.append(new_header(order_id))
-            if is_row_updated: # generate IF_ODL line to update the kit line if existed.
-                odl.append(update_kit_order_line(order_id=kit_order_id, line_id=kit_line_id,
-                                                 sku_id=kit_id, qty_ordered=kit_qty_ordered))
-                is_row_updated = False
 
 
         if row[idx_component_id]: # need to split kit item to component lines
