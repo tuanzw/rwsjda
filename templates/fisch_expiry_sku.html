@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <style>
+        table {
+            border-collapse: collapse;
+        }
+
+        table,
+        th,
+        td {
+            border: 1px solid black;
+            padding: 8px;
+        }
+
+        .italic {
+            font-style: italic;
+        }
+
+        .bold {
+            font-weight: bold;
+        }
+
+        .align-right {
+            text-align: right;
+        }
+    </style>
+</head>
+
+<body>
+    <p class="italic">This is an automatic email. Please DO NOT reply.</p>
+    <p class="bold">Below is a list of articles with a shelf life of less than 360 days.</p>
+    <table>
+        <thead>
+            <tr>
+                <th>Article</th>
+                <th>Name</th>
+                <th>Expiry Date</th>
+                <th>Quantity</th>
+                <th>Shelf Life</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            <tr>
+                <td>{{row[0]}}</td>
+                <td>{{row[1]}}</td>
+                <td>{{row[2]}}</td>
+                <td class="align-right">{{row[3]}}</td>
+                <td class="align-right">{{row[4]}}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+
+</html>
