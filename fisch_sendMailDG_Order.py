@@ -1,4 +1,5 @@
 from suds import client
+import argparse
 import ssl
 import os
 import smtplib
@@ -12,21 +13,6 @@ from email.header import Header
 from email.header import Header
 
 from jinja2 import Environment, FileSystemLoader
-
-# FISCH_APP_ENV = os.getenv('FISCH_APP_ENV')
-
-FISCH_APP_ENV = 'fisch.prod'
-
-# if not FISCH_APP_ENV:
-#     FISCH_APP_ENV = 'fisch.uat'
-
-env = dotenv_values(f'.env.{FISCH_APP_ENV}')
-
-# SMTP Credentials
-mail_host = env.get('mail_host')
-mail_host_port = env.get('mail_host_port')
-mail_user = env.get('mail_user')
-mail_pass = env.get('mail_pass')
 
 ymdhms = datetime.now().strftime('%Y%m%d%H%M%S')
 
@@ -53,7 +39,7 @@ def get_sql(path):
     return sql
 
 
-def getDefaultArg0(cli):
+def getDefaultArg0(cli, env):
     arg0 = cli.factory.create('interfaceSettings')
     arg0.authenticationKey = env.get('authkey')
     arg0.password = env.get('password')
@@ -62,8 +48,8 @@ def getDefaultArg0(cli):
     arg0.identifier  = env.get('identifier')
     return arg0
 
-def getDG_Orders(cli):
-    arg0 = getDefaultArg0(cli)
+def getDG_Orders(cli, env):
+    arg0 = getDefaultArg0(cli, env)
     arg1 = cli.factory.create('queryParameters')
     arg1.maxRecords = 10000
     
@@ -85,16 +71,16 @@ def build_mail_body(rows: list) -> str:
     htmlBody = jinja_env.get_template("fisch_mailbody_dg_item.html").render(rows=rows)
     return htmlBody
 
-def Send_Html_Mail(to_list,subject,content, attachments = None):
+def Send_Html_Mail(env, subject,content, attachments = None):
     try:
-        smtpObj = smtplib.SMTP(mail_host, mail_host_port)  # Create an SMTP object with the host and port
-        smtpObj.connect(mail_host, mail_host_port)  # Connect to Amazon SES
+        smtpObj = smtplib.SMTP(env.get('mail_host'), env.get('mail_host_port'))  # Create an SMTP object with the host and port
+        smtpObj.connect(env.get('mail_host'), env.get('mail_host_port'))  # Connect to Amazon SES
         smtpObj.starttls()  # Start TLS encryption for secure email transmission
-        smtpObj.login(mail_user, mail_pass)  # Login with your AWS credentials
+        smtpObj.login(env.get('mail_user'), env.get('mail_pass'))  # Login with your AWS credentials
         msg = MIMEMultipart()
         msg['Subject'] = Header(subject, 'utf-8')
         msg['From'] = "no.reply@ap.rhenus.com"
-        msg['To'] = to_list
+        msg['To'] = env.get('receipients_dg')
         msg['X-Priority'] = '1'
         # style = '<style>table {border-collapse: collapse;} table, th, td {border: 1px solid black;}</style>'
         
@@ -110,7 +96,7 @@ def Send_Html_Mail(to_list,subject,content, attachments = None):
                 msg.attach(part)
             
 
-        smtpObj.sendmail("no.reply@ap.rhenus.com", to_list.split(','), msg.as_string()) 
+        smtpObj.sendmail("no.reply@ap.rhenus.com", env.get('receipients_dg').split(','), msg.as_string()) 
         
     except Exception as e:
         print(f"Error: unable to send email {e}")
@@ -119,19 +105,29 @@ def Send_Html_Mail(to_list,subject,content, attachments = None):
 
 def main():
     try:
-        logger.info(f'START with using {FISCH_APP_ENV}, debug {env.get('debug')}')
+        parser = argparse.ArgumentParser(description='Alert Email for DG items in Order')
+        parser.add_argument('--prod', action="store_true", help="Set Env to PROD", required = False)
+        args = parser.parse_args()
+
+        if args.prod == True:
+            APP_ENV = '.env.fisch.prod'
+        else:
+            APP_ENV = '.env.fisch.uat'
+        env = dotenv_values(APP_ENV)
+
+        logger.info(f'START with using {APP_ENV}, debug {env.get('debug')}')
         if hasattr(ssl, '_create_unverified_context'):
             ssl._create_default_https_context = ssl._create_unverified_context
         apiCli = client.Client(env.get('wsdl')) # PROD
         print("API initialized successfully!")
         logger.info('1. API initialized successfully!')
         
-        rows = getDG_Orders(apiCli)
+        rows = getDG_Orders(apiCli, env)
         if rows:
             content = build_mail_body(rows)
-            Send_Html_Mail(env.get('receipients_dg'), f'{FISCH_APP_ENV.split('.')[1].upper()} - Orders have DG item!', content)
+            Send_Html_Mail(env, f'{APP_ENV.split('.')[-1].upper()} - Orders have DG item!', content)
         else:
-            print(f'{FISCH_APP_ENV.split('.')[1].upper()} - No orders have DG item!')
+            print(f'{APP_ENV.split('.')[-1].upper()} - No orders have DG item!')
     except Exception as e:
         logger.exception(e)
     finally:

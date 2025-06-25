@@ -11,6 +11,7 @@
         th,
         td {
             border: 1px solid black;
+            padding: 8px;
         }
     </style>
 </head>
@@ -20,8 +21,15 @@
         <thead>
             <tr>
                 <th>Order</th>
+                <th>Sku</th>
+                <th>Name</th>
+                <th>Qty</th>
+                <th>Gross Weight</th>
+                <th>Pack Config</th>
+                <th>Pallet Estimate</th>
                 <th>Status</th>
                 <th>Remarks</th>
+
             </tr>
         </thead>
         <tbody>
@@ -30,6 +38,12 @@
                 <td>{{row[0]}}</td>
                 <td>{{row[1]}}</td>
                 <td>{{row[2]}}</td>
+                <td>{{row[3]}}</td>
+                <td>{{row[4]}}</td>
+                <td>{{row[5]}}</td>
+                <td>{{row[6]}}</td>
+                <td>{{row[7]}}</td>
+                <td>{{row[8]}}</td>
             </tr>
             {% endfor %}
         </tbody>
