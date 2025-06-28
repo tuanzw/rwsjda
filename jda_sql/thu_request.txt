@@ -1,0 +1,22 @@
+select user_def_type_8 CC_OO, order_id Buff, regexp_substr(user_def_type_3, '[^-]+', 1, 1) as Truck, container_id conainer, Sku_id item, qty_shipped quantity from shipping_manifest_archives
+where client_id='CONCUNG' and site_id='VNHCM03'
+and order_id in (
+'BUFF-2908241-654',
+'BUFF-2907241-654',
+'BUFF-2608241-654',
+'BUFF-2507241-654',
+'BUFF-2208241-654',
+'BUFF-2207241-654',
+'BUFF-1908241-654',
+'BUFF-1807241-654',
+'BUFF-1508241-654',
+'BUFF-1507241-654',
+'BUFF-1208241-654',
+'BUFF-1107241-654',
+'BUFF-0808241-654',
+'BUFF-0807241-654',
+'BUFF-0509241-654',
+'BUFF-0508241-654',
+'BUFF-0209241-654',
+'BUFF-0108241-654'
+)

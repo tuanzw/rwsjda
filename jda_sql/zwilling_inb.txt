@@ -1,0 +1,54 @@
+SELECT TRUNC(PAL.CREATION_DATE + 7 / 24) CREATION_D,
+       TRUNC(PAH.ACTUAL_DSTAMP + 7/24) AS RECEIPT_D,
+       PAL.PRE_ADVICE_ID,
+       PAH.STATUS,
+       PAH.NAME,
+       PAH.COUNTRY,
+       PAL.SKU_ID,
+       SK.DESCRIPTION,
+       PAL.CONFIG_ID,
+       PAL.QTY_DUE,
+       PAL.QTY_RECEIVED,
+       PAL.QTY_RECEIVED * SK.EACH_WEIGHT AS TOTAL_W,
+       PAL.QTY_RECEIVED * SK.EACH_HEIGHT * SK.EACH_WIDTH * SK.EACH_DEPTH / 1000000 AS TOTAL_V
+FROM
+  (SELECT creation_date,
+          pre_advice_id,
+          sku_id,
+          config_id,
+          qty_due,
+          qty_received
+   FROM PRE_ADVICE_LINE
+   WHERE client_id='ZWILLING'
+   UNION ALL SELECT creation_date,
+                    pre_advice_id,
+                    sku_id,
+                    config_id,
+                    qty_due,
+                    qty_received
+   FROM pre_advice_line_archives
+   WHERE client_id='ZWILLING') PAL
+INNER JOIN
+  (SELECT pre_advice_id,
+          client_id,
+          actual_dstamp,
+          status,
+          country,
+          user_def_chk_1,
+          name
+   FROM PRE_ADVICE_HEADER
+   WHERE client_id='ZWILLING'
+   UNION ALL SELECT pre_advice_id,
+                    client_id,
+                    actual_dstamp,
+                    status,
+                    country,
+                    user_def_chk_1,
+                    name
+   FROM pre_advice_header_archives
+   WHERE client_id='ZWILLING') PAH ON PAL.PRE_ADVICE_ID = PAH.PRE_ADVICE_ID
+INNER JOIN SKU SK ON PAL.SKU_ID = SK.SKU_ID
+WHERE PAH.CLIENT_ID = 'ZWILLING'
+  AND PAH.STATUS <> 'Released'
+  AND PAH.USER_DEF_CHK_1 <> 'Y'
+order by pal.creation_date

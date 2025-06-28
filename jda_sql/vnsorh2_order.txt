@@ -1,0 +1,40 @@
+SELECT 
+  odh.order_id, 
+  odh.client_id, 
+  odh.status, 
+  odh.num_lines, 
+  SUM(odl.qty_ordered) AS total_qty_ordered, 
+  SUM(odl.qty_shipped) AS total_qty_shipped
+FROM (
+  SELECT order_id, client_id, status, num_lines 
+  FROM order_header
+  WHERE from_site_id = 'VNSORH2'
+    AND creation_date >= TO_DATE(:sdate, 'yyyymmdd') 
+    AND creation_date < TO_DATE(:edate, 'yyyymmdd')
+  UNION ALL 
+  SELECT order_id, client_id, status, num_lines 
+  FROM order_header_archives
+  WHERE from_site_id = 'VNSORH2'
+    AND creation_date >= TO_DATE(:sdate, 'yyyymmdd') 
+    AND creation_date < TO_DATE(:edate, 'yyyymmdd')
+) odh
+INNER JOIN (
+  SELECT order_id, qty_ordered, qty_shipped 
+  FROM order_line
+  WHERE creation_date >= TO_DATE(:sdate, 'yyyymmdd') 
+    AND creation_date < TO_DATE(:edate, 'yyyymmdd')
+  UNION ALL
+  SELECT order_id, qty_ordered, qty_shipped 
+  FROM order_line_archives
+  WHERE creation_date >= TO_DATE(:sdate, 'yyyymmdd') 
+    AND creation_date < TO_DATE(:edate, 'yyyymmdd')
+) odl
+ON odh.order_id = odl.order_id
+GROUP BY 
+  odh.order_id, 
+  odh.client_id, 
+  odh.status,
+  odh.num_lines
+ORDER BY 
+  odh.client_id, 
+  odh.order_id

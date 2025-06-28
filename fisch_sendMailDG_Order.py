@@ -71,7 +71,7 @@ def build_mail_body(rows: list) -> str:
     htmlBody = jinja_env.get_template("fisch_mailbody_dg_item.html").render(rows=rows)
     return htmlBody
 
-def Send_Html_Mail(env, subject,content, attachments = None):
+def Send_Html_Mail(env, subject,content, attachments=None, debug=False):
     try:
         smtpObj = smtplib.SMTP(env.get('mail_host'), env.get('mail_host_port'))  # Create an SMTP object with the host and port
         smtpObj.connect(env.get('mail_host'), env.get('mail_host_port'))  # Connect to Amazon SES
@@ -95,8 +95,10 @@ def Send_Html_Mail(env, subject,content, attachments = None):
                 part['Content-Disposition'] = f'attachment; filename="{os.path.basename(attachment)}"'
                 msg.attach(part)
             
-
-        smtpObj.sendmail("no.reply@ap.rhenus.com", env.get('receipients_dg').split(','), msg.as_string()) 
+        if debug == True:
+            smtpObj.sendmail("no.reply@ap.rhenus.com", 'tuan.nguyen@rhenus.com', msg.as_string())
+        else:
+            smtpObj.sendmail("no.reply@ap.rhenus.com", env.get('receipients_dg').split(','), msg.as_string())
         
     except Exception as e:
         print(f"Error: unable to send email {e}")
@@ -107,6 +109,7 @@ def main():
     try:
         parser = argparse.ArgumentParser(description='Alert Email for DG items in Order')
         parser.add_argument('--prod', action="store_true", help="Set Env to PROD", required = False)
+        parser.add_argument('--debug', action="store_true", help="Debug mode", required = False)
         args = parser.parse_args()
 
         if args.prod == True:
@@ -125,7 +128,7 @@ def main():
         rows = getDG_Orders(apiCli, env)
         if rows:
             content = build_mail_body(rows)
-            Send_Html_Mail(env, f'{APP_ENV.split('.')[-1].upper()} - Orders have DG item!', content)
+            Send_Html_Mail(env, f'{APP_ENV.split('.')[-1].upper()} - Orders have DG item!', content, debug=args.debug)
         else:
             print(f'{APP_ENV.split('.')[-1].upper()} - No orders have DG item!')
     except Exception as e:

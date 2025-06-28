@@ -1,0 +1,96 @@
+SELECT TRUNC(ODH.CREATION_DATE) CREATION_D,
+       TRUNC(ODH.SHIPPED_DATE) SHIPPED_D,
+       NVL(TO_DATE(NULL, 'dd-mm-yyyy'), SYSDATE) DISPATCHED_D,
+       ODH.ORDER_ID,
+       ODH.NAME,
+       ODH.ADDRESS1,
+       ODH.ADDRESS2,
+       ODH.STATUS,
+       ODH.USER_DEF_TYPE_2,
+       SM.TAG_ID,
+       SM.SKU_ID,
+       SKU.DESCRIPTION,
+       SM.CONFIG_ID,
+       SM.QTY_SHIPPED,
+       SM.QTY_SHIPPED * SKU.EACH_WEIGHT AS TOTAL_W,
+       ROUND(SM.QTY_SHIPPED * SKU.EACH_HEIGHT * SKU.EACH_WIDTH * SKU.EACH_DEPTH / 1000000, 6) AS TOTAL_V,
+       TRUNC(SM.RECEIPT_DSTAMP) RECEIPT_D,
+       SM.RECEIPT_ID,
+       SM.CONTAINER_ID
+FROM
+  (SELECT client_id,
+          CREATION_DATE,
+          SHIPPED_DATE,
+          ORDER_ID,
+          NAME,
+          ADDRESS1,
+          ADDRESS2,
+          STATUS,
+          USER_DEF_TYPE_2,
+          country
+   FROM ORDER_HEADER
+   WHERE client_id='ZWILLING'
+   UNION ALL SELECT client_id,
+                    CREATION_DATE,
+                    SHIPPED_DATE,
+                    ORDER_ID,
+                    NAME,
+                    ADDRESS1,
+                    ADDRESS2,
+                    STATUS,
+                    USER_DEF_TYPE_2,
+                    country
+   FROM order_header_archives
+   WHERE client_id='ZWILLING') ODH
+INNER JOIN
+  (SELECT client_id,
+          line_id,
+          order_id,
+          sku_id
+   FROM ORDER_LINE
+   WHERE client_id='ZWILLING'
+   UNION ALL SELECT client_id,
+                    line_id,
+                    order_id,
+                    sku_id
+   FROM order_line_archives
+   WHERE client_id='ZWILLING') ODL ON ODH.ORDER_ID = ODL.ORDER_ID
+INNER JOIN
+  (SELECT order_id,
+          line_id,
+          tag_id,
+          sku_id,
+          config_id,
+          qty_shipped,
+          receipt_dstamp,
+          receipt_id,
+          container_id
+   FROM SHIPPING_MANIFEST
+   WHERE client_id='ZWILLING'
+   UNION ALL SELECT order_id,
+                    line_id,
+                    tag_id,
+                    sku_id,
+                    config_id,
+                    qty_shipped,
+                    receipt_dstamp,
+                    receipt_id,
+                    container_id
+   FROM shipping_manifest_archives
+   WHERE client_id='ZWILLING') SM ON ODL.ORDER_ID = SM.ORDER_ID
+AND ODL.LINE_ID = SM.LINE_ID
+AND ODL.SKU_ID = SM.SKU_ID
+INNER JOIN SKU ON ODL.SKU_ID = SKU.SKU_ID
+INNER JOIN
+  (SELECT PRE_ADVICE_ID
+   FROM PRE_ADVICE_HEADER
+   WHERE CLIENT_ID='ZWILLING' --'ZWILLING'
+
+   UNION ALL SELECT PRE_ADVICE_ID
+   FROM PRE_ADVICE_HEADER_ARCHIVES
+   WHERE CLIENT_ID='ZWILLING' --'ZWILLING'
+) PAH ON PAH.PRE_ADVICE_ID = SM.RECEIPT_ID
+INNER JOIN COUNTRY ON ODH.COUNTRY = COUNTRY.ISO3_ID
+WHERE ODH.CLIENT_ID = 'ZWILLING' --'ZWILLING'
+ --AND odh.creation_date >= (SYSDATE - 30)
+order by ODH.CREATION_DATE

@@ -1,0 +1,40 @@
+SELECT 
+  pah.pre_advice_id, 
+  pah.client_id, 
+  pah.status, 
+  pah.num_lines, 
+  SUM(pal.qty_due) AS total_qty_due, 
+  SUM(pal.qty_received) AS total_qty_received
+FROM (
+  SELECT client_id, pre_advice_id, status, num_lines 
+  FROM pre_advice_header
+  WHERE site_id = 'VNSORH2'
+    AND creation_date >= TO_DATE(:sdate, 'yyyymmdd') 
+    AND creation_date < TO_DATE(:edate, 'yyyymmdd')
+  UNION ALL
+  SELECT client_id, pre_advice_id, status, num_lines 
+  FROM pre_advice_header_archives
+  WHERE site_id = 'VNSORH2'
+    AND creation_date >= TO_DATE(:sdate, 'yyyymmdd') 
+    AND creation_date < TO_DATE(:edate, 'yyyymmdd')
+) pah
+INNER JOIN (
+  SELECT pre_advice_id, qty_due, qty_received 
+  FROM pre_advice_line
+  WHERE creation_date >= TO_DATE(:sdate, 'yyyymmdd') 
+    AND creation_date < TO_DATE(:edate, 'yyyymmdd')
+  UNION ALL 
+  SELECT pre_advice_id, qty_due, qty_received 
+  FROM pre_advice_line_archives
+  WHERE creation_date >= TO_DATE(:sdate, 'yyyymmdd') 
+    AND creation_date < TO_DATE(:edate, 'yyyymmdd')
+) pal
+ON pah.pre_advice_id = pal.pre_advice_id
+GROUP BY 
+  pah.pre_advice_id, 
+  pah.client_id, 
+  pah.status, 
+  pah.num_lines
+ORDER BY 
+  pah.client_id, 
+  pah.pre_advice_id
